@@ -1,0 +1,21 @@
+version: '3.7'
+
+services:
+  sms_api:
+    image: sms:latest
+    container_name: sms_api
+    build: .
+    environment:
+      DEBUG: 'true'
+      HTTP_LISTEN: :80
+      LOG_LEVEL: 'info'
+    expose:
+      - "80"
+    ports:
+      - "80:9090"
+    networks:
+      sms-net:
+
+networks:
+  sms-net:
+    name: sms-net
