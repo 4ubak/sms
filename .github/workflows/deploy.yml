@@ -8,8 +8,8 @@ jobs:
     name: Build and deploy
     runs-on: ubuntu-latest
     env:
-      OWNER: 4ubak
-      IMAGE: sms
+      OWNER: vitalarcana
+      IMAGE: arcana_sms
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
