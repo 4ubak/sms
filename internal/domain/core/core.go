@@ -22,7 +22,7 @@ var (
 func (c *Core) Send(pars *entities.SendReqSt) error {
 	var err error
 
-	err = c.validateValues(pars)
+	err = c.validateValues(pars, false)
 	if err != nil {
 		return err
 	}
@@ -78,10 +78,67 @@ func (c *Core) Send(pars *entities.SendReqSt) error {
 	return nil
 }
 
+func (c *Core) Call(pars *entities.SendReqSt) (string, error) {
+	var err error
+
+	err = c.validateValues(pars, true)
+	if err != nil {
+		return "", err
+	}
+
+	urlValues := url.Values{
+		"login":  {c.smscUsername},
+		"psw":    {c.smscPassword},
+		"phones": {pars.Phones},
+		"mes":    {"code"},
+		"call":   {"1"},
+		"fmt":    {"3"},
+	}
+
+	urlString := constants.SMSCUrlPrefix + "send.php?" + urlValues.Encode()
+
+	req, err := http.NewRequest("GET", urlString, nil)
+	if err != nil {
+		c.lg.Errorw("Fail to create http-request", err)
+		return "", errs.ServerNA
+	}
+
+	rep, err := smscHttpClient.Do(req)
+	if err != nil {
+		c.lg.Errorw("Fail to send http-request", err)
+		return "", errs.ServerNA
+	}
+	defer rep.Body.Close()
+
+	if rep.StatusCode < 200 || rep.StatusCode >= 300 {
+		c.lg.Errorw("Fail to send http-request, bad status code", nil, "status_code", rep.StatusCode)
+		return "", errs.ServerNA
+	}
+
+	resultObj := &entities.SendRepSt{}
+
+	c.lg.Infow("infow", "Body", rep.Body)
+
+	if err = json.NewDecoder(rep.Body).Decode(resultObj); err != nil {
+		c.lg.Errorw("Fail to parse http-body", err)
+		return "", errs.ServerNA
+	}
+
+	if (resultObj.ErrorCode != 0) || (resultObj.Error != "") {
+		c.lg.Infow("User phone", "phone", pars.Phones)
+		if resultObj.ErrorCode != 8 && resultObj.ErrorCode != 7 && resultObj.ErrorCode != 6 {
+			c.lg.Errorw("Bad response smsc.kz", nil, "error_code", resultObj.ErrorCode, "error", resultObj.Error)
+		}
+		return "", errs.ServerNA
+	}
+
+	return resultObj.CODE, nil
+}
+
 func (c *Core) Bcast(pars *entities.SendReqSt) error {
 	var err error
 
-	err = c.validateValues(pars)
+	err = c.validateValues(pars, false)
 	if err != nil {
 		c.lg.Errorw("Not correct values", err)
 		return err
@@ -249,15 +306,17 @@ func (c *Core) requestBalance() (float64, error) {
 	return result, nil
 }
 
-func (c *Core) validateValues(pars *entities.SendReqSt) error {
+func (c *Core) validateValues(pars *entities.SendReqSt, skipMsg bool) error {
 	if len(pars.Phones) == 0 {
 		c.lg.Warnw("Phones is empty", errs.PhonesRequired)
 		return errs.PhonesRequired
 	}
 
-	if len(pars.Message) == 0 {
-		c.lg.Warnw("Message is empty", errs.MessageRequired)
-		return errs.MessageRequired
+	if !skipMsg {
+		if len(pars.Message) == 0 {
+			c.lg.Warnw("Message is empty", errs.MessageRequired)
+			return errs.MessageRequired
+		}
 	}
 
 	return nil

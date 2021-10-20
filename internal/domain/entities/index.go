@@ -7,8 +7,9 @@ type SendReqSt struct {
 }
 
 type SendRepSt struct {
-	ID  uint64 `json:"id"`
-	CNT int    `json:"cnt"`
+	ID   uint64 `json:"id"`
+	CNT  int    `json:"cnt"`
+	CODE string `json:"code"`
 	SmscErrSt
 }
 
